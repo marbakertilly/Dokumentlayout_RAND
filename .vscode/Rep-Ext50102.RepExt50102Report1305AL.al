@@ -14,6 +14,9 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
             column(Shortcut_Dimension_1_Code; "Shortcut Dimension 1 Code") { }
             column(Shortcut_Dimension_2_Code; "Shortcut Dimension 2 Code") { }
             column(TarrifNo; Tariff_No) { }
+            column(TotalSubTotal2; TotalSubTotal2) { }
+            column(TotalVATAmount2; TotalAmountVAT2) { }
+            column(TotalAmountIncludingVAT2; TotalAmountIncludingVAT2) { }
         }
 
         modify(Header)
@@ -34,18 +37,101 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
                     if Itemrec.get(SalesLines."No.") then
                         Tariff_No := itemrec."Tariff No.";
                 End;
+                SalesInvHeader.SetRange(SalesInvHeader.Closed, true);
+                SalesInvHeader.SetRange(SalesInvHeader."Prepayment Invoice", true);
+                SalesInvHeader.SetRange(SalesInvHeader."Prepayment Order No.", "No.");
+                if SalesInvHeader.FindFirst() then
+                    repeat
+                        SalesInvLines.setrange(SalesInvLines."Document No.", SalesInvHeader."No.");
+                        if SalesInvLines.FindFirst() then
+                            repeat
+                                PrepaydAmount -= SalesInvLines.Amount;
+                                Prepayd_Amount_incl_vat -= SalesInvLines."Amount Including VAT";
+                            until SalesInvLines.Next() = 0;
+                    until SalesInvHeader.next = 0;
+                If Header."Currency Code" = '' then begin
+                    PrepaydAmount -= 7450;
+                    Prepayd_Amount_incl_vat -= (7450 * 1.25);
+                end
+                else begin
+                    PrepaydAmount -= 1000;
+                    Prepayd_Amount_incl_vat -= (1000 * 1.25);
+                end;
             end;
         }
         add(Line)
         {
             column(Line_Discount_Amount; "Line Discount Amount") { }
+            column(Line_Amount; "Line Amount") { }
         }
+        modify(Line)
+        {
+            trigger OnBeforeAfterGetRecord()
+            begin
+                if not (Line.Type = Line.Type::Item) then
+                    Line."No." := '';
+                TotalSubTotal2 += "Line Amount";
+                TotalInvDiscAmount2 -= "Inv. Discount Amount";
+                TotalAmount2 += Amount;
+                TotalAmountVAT2 += ("Amount Including VAT" - Amount);
+                // TotalAmountIncludingVAT2 += "Amount Including VAT";
+                TotalPaymentDiscOnVAT2 += -("Line Amount" - "Inv. Discount Amount" - "Amount Including VAT");
+            end;
+        }
+        addafter(Line)
+        {
+            dataitem(PrepayLoop; "Integer")
+            {
+                DataItemTableView = SORTING(Number);
+                MaxIteration = 1;
+                column(Prepayd_Amount; PrepaydAmount)
+                {
+                    AutoFormatExpression = Header."Currency Code";
+                    AutoFormatType = 1;
+                }
+                column(Prepayd_Amount_incl_vat; PrepaydAmount)
+                {
+                    AutoFormatExpression = Header."Currency Code";
+                    AutoFormatType = 1;
+                }
+                column(IsPrepay_Line; IsPrepayLine) { }
+                column(PrepayDescr_Label; PrepayDescr_Lbl) { }
+
+                trigger OnPreDataItem()
+                begin
+                    TotalSubTotal2 += PrepaydAmount;
+                    TotalAmountVAT2 += (Prepayd_Amount_incl_vat - PrepaydAmount);
+                    IsPrepayLine := 1;
+                    TotalAmountIncludingVAT2 := TotalSubTotal2 + TotalAmountVAT2;
+                end;
+            }
+        }
+
     }
+
     var
         DimSetEntry: Record "Dimension Set Entry";
         DimCodeArray: Array[6] of Code[20];
         Tariff_No: Code[20];
         SalesLines: Record "Sales Line";
+        TempSalesLine: Record "Sales Line" temporary;
         ItemRec: Record Item;
+
+        SalesInvHeader: Record "Sales Invoice Header";
+        SalesInvLines: Record "Sales Invoice Line";
+
+        PrepaydAmount: Decimal;
+        PrepayLineNo: Integer;
+        IsPrepayLine: Integer;
+
+        PrepayDescr_Lbl: Label 'Prepayd amount';
+        Prepayd_Amount_incl_vat: Decimal;
+
+        TotalSubTotal2: Decimal;
+        TotalInvDiscAmount2: Decimal;
+        TotalAmount2: Decimal;
+        TotalAmountVAT2: Decimal;
+        TotalPaymentDiscOnVAT2: Decimal;
+        TotalAmountIncludingVAT2: Decimal;
 
 }
