@@ -50,12 +50,14 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
                             until SalesInvLines.Next() = 0;
                     until SalesInvHeader.next = 0;
                 If Header."Currency Code" = '' then begin
+
+
                     PrepaydAmount -= 7450;
-                    Prepayd_Amount_incl_vat -= (7450 * 1.25);
+                    Prepayd_Amount_incl_vat -= (PrepaydAmount);
                 end
                 else begin
                     PrepaydAmount -= 1000;
-                    Prepayd_Amount_incl_vat -= (1000 * 1.25);
+                    Prepayd_Amount_incl_vat -= (PrepaydAmount);
                 end;
             end;
         }
