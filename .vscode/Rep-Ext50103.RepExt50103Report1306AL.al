@@ -14,6 +14,15 @@ reportextension 50103 "Rep-Ext50103.Report1306.AL" extends "Standard Sales - Inv
             column(Shortcut_Dimension_1_Code; "Shortcut Dimension 1 Code") { }
             column(Shortcut_Dimension_2_Code; "Shortcut Dimension 2 Code") { }
             column(TarrifNo; Tariff_No) { }
+            column(Closed; Closed) { }
+            column(RandTotalExVat; RandTotalExVat) { }
+            column(RandTotalVat; RandTotalVat) { }
+            column(RandTotal; RandTotal) { }
+            column(RandTotalDiscount; RandTotalDiscount) { }
+            column(RandTotalMinusDiscount; RandTotalMinusDiscount) { }
+
+
+
         }
 
         modify(Header)
@@ -29,11 +38,22 @@ reportextension 50103 "Rep-Ext50103.Report1306.AL" extends "Standard Sales - Inv
                     until DimSetEntry.Next() = 0;
                 Tariff_No := '';
                 SalesLines.setrange(SalesLines."Document No.", Header."No.");
-                SalesLines.Setrange(SalesLines.Type, SalesLines.Type::Item);
-                if SalesLines.FindFirst() THEN Begin
-                    if Itemrec.get(SalesLines."No.") then
-                        Tariff_No := itemrec."Tariff No.";
-                End;
+                if SalesLines.FindFirst() THEN
+                    Repeat
+                        if (SalesLines.Type = SalesLines.Type::Item) then begin
+                            if Itemrec.get(SalesLines."No.") then
+                                Tariff_No := itemrec."Tariff No.";
+                        End;
+                        if (SalesLines.Amount >= 0) then begin
+                            RandTotalExVat += SalesLines.Amount;
+                            RandTotalVat += (SalesLines."Amount Including VAT" - SalesLines.Amount);
+                            RandTotal += SalesLines."Amount Including VAT";
+
+                        end;
+                    Until SalesLines.Next() = 0;
+                RandTotalDiscount := Header."Invoice Discount Value";
+                RandTotalExVat += Header."Invoice Discount Value";
+                RandTotalMinusDiscount := RandTotalExVat - RandTotalDiscount;
             end;
         }
         add(Line)
@@ -47,5 +67,9 @@ reportextension 50103 "Rep-Ext50103.Report1306.AL" extends "Standard Sales - Inv
         Tariff_No: Code[20];
         SalesLines: Record "Sales Invoice Line";
         ItemRec: Record Item;
-
+        RandTotalExVat: Decimal;
+        RandTotalVat: Decimal;
+        RandTotal: Decimal;
+        RandTotalDiscount: Decimal;
+        RandTotalMinusDiscount: Decimal;
 }

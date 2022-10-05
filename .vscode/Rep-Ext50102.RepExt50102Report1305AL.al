@@ -17,6 +17,13 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
             column(TotalSubTotal2; TotalSubTotal2) { }
             column(TotalVATAmount2; TotalAmountVAT2) { }
             column(TotalAmountIncludingVAT2; TotalAmountIncludingVAT2) { }
+            column(PrepaymentAmountHeader; PrepaymentAmountHeader) { }
+            column(PrepaymentAmountHeader2; PrepaymentAmountHeader2) { }
+            column(OrderFeePaid; OrderFeePaid) { }
+            column(PrepaymentPaid; PrepaymentPaid) { }
+            column(TotalItemAmount; TotalItemAmount) { }
+
+
         }
 
         modify(Header)
@@ -33,10 +40,12 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
                 SalesLines.setrange(SalesLines."Document No.", Header."No.");
                 SalesLines.SetRange(SalesLines."Document Type", Header."Document Type");
                 SalesLines.Setrange(SalesLines.Type, SalesLines.Type::Item);
-                if SalesLines.FindFirst() THEN Begin
-                    if Itemrec.get(SalesLines."No.") then
-                        Tariff_No := itemrec."Tariff No.";
-                End;
+                if SalesLines.FindFirst() THEN
+                    repeat
+                        if Itemrec.get(SalesLines."No.") then
+                            Tariff_No := itemrec."Tariff No.";
+                        TotalItemAmount += SalesLines.Amount;
+                    Until SalesLines.Next() = 0;
                 SalesInvHeader.SetRange(SalesInvHeader.Closed, true);
                 SalesInvHeader.SetRange(SalesInvHeader."Prepayment Invoice", true);
                 SalesInvHeader.SetRange(SalesInvHeader."Prepayment Order No.", "No.");
@@ -49,17 +58,24 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
                                 Prepayd_Amount_incl_vat -= SalesInvLines."Amount Including VAT";
                             until SalesInvLines.Next() = 0;
                     until SalesInvHeader.next = 0;
-                If Header."Currency Code" = '' then begin
+                PrepaymentAmountHeader := PrepaydAmount;
+                PrepaymentAmountHeader2 := PrepaymentAmountHeader * -1;
+                If (Header."Currency Code" = '') then
+                    OrderFee := -7450
+                else
+                    OrderFee := -1000;
 
+                if (PrepaydAmount <= OrderFee) then
+                    OrderFeePaid := 1
+                else
+                    OrderFeePaid := 0;
+                if PrepaydAmount < OrderFee then
+                    PrepaymentPaid := 1
+                else
+                    PrepaymentPaid := 0;
 
-                    PrepaydAmount -= 7450;
-                    Prepayd_Amount_incl_vat -= (PrepaydAmount);
-                end
-                else begin
-                    PrepaydAmount -= 1000;
-                    Prepayd_Amount_incl_vat -= (PrepaydAmount);
-                end;
             end;
+
         }
         add(Line)
         {
@@ -104,7 +120,8 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
                     TotalSubTotal2 += PrepaydAmount;
                     TotalAmountVAT2 += (Prepayd_Amount_incl_vat - PrepaydAmount);
                     IsPrepayLine := 1;
-                    TotalAmountIncludingVAT2 := TotalSubTotal2 + TotalAmountVAT2;
+                    //  TotalAmountIncludingVAT2 := TotalSubTotal2 + TotalAmountVAT2;
+
                 end;
             }
         }
@@ -135,5 +152,12 @@ reportextension 50102 "Rep-Ext50102.Report1305.AL" extends "Standard Sales - Ord
         TotalAmountVAT2: Decimal;
         TotalPaymentDiscOnVAT2: Decimal;
         TotalAmountIncludingVAT2: Decimal;
+        PrepaymentAmountHeader: Decimal;
+        PrepaymentAmountHeader2: Decimal;
+        OrderFeePaid: Integer;
+        PrepaymentPaid: Integer;
+        TotalItemAmount: Decimal;
+        OrderFee: Decimal;
+
 
 }

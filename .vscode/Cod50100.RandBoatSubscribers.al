@@ -41,7 +41,7 @@ codeunit 50148 RandBoatSubscribers
                         OrdreFee -= SalesLine."Prepmt. Line Amount";
                         SalesLine.validate(SalesLine."Prepayment %", 0);
                     end;
-                    SalesLine.Modify();
+                    //SalesLine.Modify();
                     if OrdreFee = 0 then
                         exit;
                 until SalesLine.Next() = 0;
